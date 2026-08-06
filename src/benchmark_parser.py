@@ -16,18 +16,24 @@ def summarize_record(record: dict[str, object]) -> dict[str, object]:
 
     # TODO 1: 从 record 取出 request_id、model、labels 和三个数值字段，
     # 并分别保存到带类型标注的变量中。
-    request_id: str = ""
-    model: str = ""
-    labels: list[str] = []
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    latency_ms: float = 0.0
+    request_id: str = record["request_id"]
+    model: str = record["model"]
+    labels: list[str] = record["labels"]
+    prompt_tokens: int = record["prompt_tokens"]
+    completion_tokens: int = record["completion_tokens"]
+    latency_ms: float = record["latency_ms"]
 
     # TODO 2: 计算 total_tokens 和 tokens_per_second。
     # tokens_per_second = completion_tokens / (latency_ms / 1000)
-    total_tokens: int = 0
-    tokens_per_second: float = 0.0
+    total_tokens: int = prompt_tokens + completion_tokens
+    tokens_per_second: float = completion_tokens / (latency_ms / 1000)
 
     # TODO 3: 返回包含五个目标字段的新 dict；字段名以 README 的期望汇总为准。
-    return {}
+    return {
+        "request_id": request_id,
+        "model": model,
+        "labels": labels,
+        "total_tokens": total_tokens,
+        "tokens_per_second": tokens_per_second
+    }
 
