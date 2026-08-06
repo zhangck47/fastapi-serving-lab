@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fastapi-serving-lab"
+version = "0.1.0"
+description = "A progressive learning project for an OpenAI-compatible FastAPI serving gateway"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<10",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.setuptools]
+py-modules = ["benchmark_parser"]
+package-dir = {"" = "src"}
+
