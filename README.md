@@ -14,14 +14,17 @@
 
 ## 当前进度
 
-第 1 天：用 Python 数据结构表示一条脱敏压测结果，并编写一个带类型标注的汇总函数。
+第 2 天：用 `if` 条件判断和 `for` 循环筛选多条压测记录中的成功项，再用 `set` 去重、以 `tuple` 汇总模型名。
 
-输入记录：
+当前状态（2026-08-11）：第 2 天代码审查和自动化测试已通过，结果为 `5 passed`；复习问题和个人学习记录仍待完成，尚未进入第 3 天。
+
+输入记录（每条比第 1 天多一个 `status` 字段）：
 
 ```python
 {
     "request_id": "req_demo_001",
     "model": "mock-llm",
+    "status": "success",
     "prompt_tokens": 12,
     "completion_tokens": 8,
     "latency_ms": 640.0,
@@ -29,25 +32,22 @@
 }
 ```
 
-期望汇总：
+今天只修改 [src/benchmark_parser.py](src/benchmark_parser.py) 中的 4 个 TODO，不改测试来迁就实现：
 
-```python
-{
-    "request_id": "req_demo_001",
-    "model": "mock-llm",
-    "labels": ["mock", "cache-hit"],
-    "total_tokens": 20,
-    "tokens_per_second": 12.5,
-}
-```
+1. `filter_successful_records(records)`：用 `for` + `if` 筛选出 `status == "success"` 的记录，保持原顺序。
+2. `collect_model_names(records)`：把所有 `model` 放入 `set` 去重，用 `sorted()` 排序后转为 `tuple` 返回。
 
-这里的 `tokens_per_second` 定义为：
+期望行为（测试已给出）：
 
-```text
-completion_tokens / (latency_ms / 1000)
-```
+- 成功记录被保留，失败记录被过滤；
+- 重复模型只出现一次，且结果按字母序；
+- 空列表返回空元组 `()`。
 
-今天只修改 [src/benchmark_parser.py](src/benchmark_parser.py) 中的 3 个 TODO，不改测试来迁就实现。
+代码审查提醒：
+
+- `record.get("status")` 在合法输入下工作正确，但字段缺失时会返回 `None`，从而把坏记录静默过滤。第 3 天学习异常处理时会重新讨论这种取舍。
+- `dict[str, object]` 表示值可能是任意对象，类型标注暂时无法证明取出的 `model` 一定是 `str`。后续会逐步使用更清晰的数据模型解决这个问题。
+- `return (tuple(sorted(models)))` 外层括号不影响结果，但可以简化为 `return tuple(sorted(models))`。
 
 ## 环境要求
 
