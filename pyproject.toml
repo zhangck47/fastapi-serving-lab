@@ -18,8 +18,8 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+addopts = ["--basetemp=.pytest-tmp"]
 
 [tool.setuptools]
 py-modules = ["benchmark_parser"]
 package-dir = {"" = "src"}
-

@@ -1,8 +1,13 @@
+from pathlib import Path
+
+import pytest
+
 from benchmark_parser import (
     SAMPLE_RECORDS,
     SAMPLE_RESULT,
     collect_model_names,
     filter_successful_records,
+    load_benchmark_record,
     summarize_record,
 )
 
@@ -42,3 +47,33 @@ def test_successful_flow_uses_both_functions() -> None:
     models = collect_model_names(filter_successful_records(SAMPLE_RECORDS))
 
     assert models == ("fast-llm", "mock-llm")
+
+
+def test_load_benchmark_record_reads_json(tmp_path: Path) -> None:
+    benchmark_file = tmp_path / "benchmark.json"
+    benchmark_file.write_text(
+        '{"request_id": "req_file_001", "model": "mock-llm"}',
+        encoding="utf-8",
+    )
+
+    record = load_benchmark_record(benchmark_file)
+
+    assert record == {
+        "request_id": "req_file_001",
+        "model": "mock-llm",
+    }
+
+
+def test_load_benchmark_record_reports_missing_file(tmp_path: Path) -> None:
+    missing_file = tmp_path / "missing.json"
+
+    with pytest.raises(FileNotFoundError, match="Benchmark file not found"):
+        load_benchmark_record(missing_file)
+
+
+def test_load_benchmark_record_reports_invalid_json(tmp_path: Path) -> None:
+    invalid_file = tmp_path / "invalid.json"
+    invalid_file.write_text('{"request_id": }', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Invalid JSON in benchmark file"):
+        load_benchmark_record(invalid_file)

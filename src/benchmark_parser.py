@@ -1,4 +1,7 @@
-"""Benchmark record helpers: summary (Day 1) and success filtering (Day 2)."""
+"""Helpers for reading and processing sanitized benchmark records."""
+
+import json
+from pathlib import Path
 
 
 SAMPLE_RESULT: dict[str, object] = {
@@ -14,8 +17,7 @@ SAMPLE_RESULT: dict[str, object] = {
 def summarize_record(record: dict[str, object]) -> dict[str, object]:
     """Build a small summary from one already-decoded benchmark record."""
 
-    # TODO 1: 从 record 取出 request_id、model、labels 和三个数值字段，
-    # 并分别保存到带类型标注的变量中。
+    # Day 1: 从字典取值，并保存到带类型标注的变量中。
     request_id: str = record["request_id"]
     model: str = record["model"]
     labels: list[str] = record["labels"]
@@ -23,12 +25,12 @@ def summarize_record(record: dict[str, object]) -> dict[str, object]:
     completion_tokens: int = record["completion_tokens"]
     latency_ms: float = record["latency_ms"]
 
-    # TODO 2: 计算 total_tokens 和 tokens_per_second。
+    # Day 1: 计算 total_tokens 和 tokens_per_second。
     # tokens_per_second = completion_tokens / (latency_ms / 1000)
     total_tokens: int = prompt_tokens + completion_tokens
     tokens_per_second: float = completion_tokens / (latency_ms / 1000)
 
-    # TODO 3: 返回包含五个目标字段的新 dict；字段名以 README 的期望汇总为准。
+    # Day 1: 返回一个新的汇总字典。
     return {
         "request_id": request_id,
         "model": model,
@@ -74,22 +76,44 @@ def filter_successful_records(
 ) -> list[dict[str, object]]:
     """Filter records whose status is "success", keeping original order."""
 
-    # TODO 1: 用 for 循环遍历 records，用 if 判断 record["status"] == "success"，
-    # 把满足条件的记录 append 到 successful。
+    # Day 2: 遍历记录，保留 status 为 success 的项目。
     successful: list[dict[str, object]] = []
     for record in records:
-        if record.get("status") == "success":
+        if record["status"] == "success":
             successful.append(record)
-    # TODO 2: 返回 successful。
     return successful
 
 
 def collect_model_names(records: list[dict[str, object]]) -> tuple[str, ...]:
     """Return unique model names as a sorted tuple."""
 
-    # TODO 3: 用 for 循环把所有 record["model"] 加入集合 models 去重。
+    # Day 2: 使用集合对模型名去重。
     models: set[str] = set()
     for record in records:
-        models.add(record.get("model"))
-    # TODO 4: 用 sorted() 排序后转为 tuple 返回。
-    return (tuple(sorted(models)))
+        models.add(record["model"])
+    return tuple(sorted(models))
+
+
+def load_benchmark_record(file_path: Path) -> dict[str, object]:
+    """Read one benchmark record from a UTF-8 JSON file."""
+
+    try:
+        # TODO 1: 使用 file_path.read_text(encoding="utf-8") 读取文件，
+        # 将结果保存到带 str 类型标注的 file_contents 变量。
+        file_contents: str = file_path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        # TODO 2: 抛出新的 FileNotFoundError，消息包含：
+        # Benchmark file not found: <文件路径>
+        # 使用 "raise ... from exc" 保留原始异常原因。
+        raise FileNotFoundError(f"Benchmark file not found: {file_path}") from exc
+
+    try:
+        # TODO 3: 使用 json.loads(file_contents) 解码 JSON，保存到 record，
+        # 然后返回 record。若发生 json.JSONDecodeError，则在 except 中
+        # 抛出 ValueError，消息包含：Invalid JSON in benchmark file: <文件路径>，
+        # 同样使用 "raise ... from exc"。
+        record: dict[str, object] = json.loads(file_contents)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON in benchmark file: {file_path}") from exc
+
+    return record
