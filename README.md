@@ -14,71 +14,64 @@
 
 ## 当前进度
 
-第 3 天：从 JSON 文件读取一条压测记录，并为文件不存在和 JSON 格式损坏提供清晰异常。
+第 4 天：从 JSONL 文件逐行读取多条压测记录，并在坏行出现时报告准确行号。
 
-今天只修改 [src/benchmark_parser.py](src/benchmark_parser.py) 中 `load_benchmark_record()` 的 3 个 TODO，不修改测试来迁就实现。
+今天只修改 [src/benchmark_parser.py](src/benchmark_parser.py) 中 `load_benchmark_records()` 的 3 个 TODO，不修改测试来迁就实现。
 
-当前状态（2026-08-12）：Day 3 代码、异常处理、复习和自动化测试均已完成，结果为 `8 passed`。
+当前状态（2026-08-13）：Day 4 代码、异常处理、权限问题复盘和自动化测试均已完成，结果为 `11 passed`。
 
-期望读取的文件内容：
+JSONL 不是一个大 JSON 数组，而是“一行一个独立 JSON 对象”：
 
-```json
-{
-  "request_id": "req_file_001",
-  "model": "mock-llm"
-}
+```text
+{"request_id": "req_001", "model": "mock-llm"}
+{"request_id": "req_002", "model": "fast-llm"}
 ```
 
 期望行为：
 
-- 文件存在且 JSON 合法：返回 Python `dict`。
-- 文件不存在：抛出带清晰路径信息的 `FileNotFoundError`。
-- JSON 损坏：抛出带清晰路径信息的 `ValueError`。
+- 每个非空行解码为一条 `dict`，并按照文件顺序加入列表。
+- 空白行跳过；空文件返回 `[]`。
+- 某一行 JSON 损坏时，错误信息指出真实文件行号。
 
-今天暂时假设 JSON 顶层一定是对象，不做字段结构验证；这会在后续数据模型课程中处理。
-
-## Day 3 学习任务
+## Day 4 学习任务
 
 ### 今日目标
 
-1. 使用 `Path` 表示并读取文件路径。
-2. 使用 `json.loads()` 把 JSON 文本转换成 Python 字典。
-3. 捕获底层异常并提供清晰的错误信息。
+1. 使用 `with` 管理文件打开与关闭。
+2. 使用 `enumerate(..., start=1)` 逐行读取并记录行号。
+3. 在 JSONL 损坏时报告准确坏行。
 
 ### 必要知识
 
-`Path` 是 Python 对文件路径的表示。`read_text()` 会读取整个文本文件：
+`with` 是上下文管理器语法。离开缩进块时，无论正常结束还是发生异常，文件都会自动关闭：
 
 ```python
-text: str = file_path.read_text(encoding="utf-8")
-```
-
-JSON 是文本格式，`json.loads(text)` 才会把文本转换成 Python 对象。文件读取和 JSON 解码是两个独立步骤，因此也可能发生两种不同错误。
-
-`try` 中放可能失败的代码，`except` 处理指定异常：
-
-```python
-try:
+with file_path.open("r", encoding="utf-8") as file:
     ...
-except FileNotFoundError as exc:
-    raise FileNotFoundError("更清楚的消息") from exc
 ```
 
-`from exc` 会保留原始错误链，排查问题时既能看到友好说明，也能看到底层原因。
+直接遍历文件会一行一行读取，不必先把整个文件装入内存。`enumerate` 同时提供行号和内容：
+
+```python
+for line_number, line in enumerate(file, start=1):
+    ...
+```
+
+`start=1` 让行号与编辑器里看到的行号一致。空白行也占用真实文件行号，即使它被跳过。
 
 ### 今天修改的文件
 
-- `src/benchmark_parser.py`：增加读取单个 JSON 压测记录的函数。
-- `tests/test_benchmark_parser.py`：覆盖成功、文件不存在和 JSON 损坏。
-- `README.md`：记录 Day 3 的任务说明。
-- `ROADMAP.md`：更新当前学习进度。
-- `LEARNING_LOG.md`：提供 Day 3 复盘模板。
+- `src/benchmark_parser.py`：增加 JSONL 多记录读取函数。
+- `tests/test_benchmark_parser.py`：覆盖合法多行、空文件和坏行行号。
+- `README.md`：记录 Day 4 的任务说明。
+- `ROADMAP.md`：更新 Day 4 进度。
+- `LEARNING_LOG.md`：提供 Day 4 复盘模板。
 
 ### 我的编码任务
 
-- `TODO 1`：以 UTF-8 读取文件文本。
-- `TODO 2`：把文件不存在错误转换成包含路径的清晰错误。
-- `TODO 3`：解码 JSON，并把格式损坏错误转换成清晰的 `ValueError`。
+- `TODO 1`：用 `with` 打开 UTF-8 JSONL 文件。
+- `TODO 2`：逐行读取，跳过空行，解码并收集记录。
+- `TODO 3`：把坏行异常转换成包含真实行号和路径的 `ValueError`。
 
 ### 运行命令
 
@@ -90,35 +83,35 @@ except FileNotFoundError as exc:
 
 ### 预期结果
 
-完成 TODO 前，Day 3 测试会失败；正确完成后应看到：
+完成 TODO 前，Day 4 测试会失败；正确完成后应看到：
 
 ```text
-8 passed
+11 passed
 ```
 
 ### 测试
 
-今天新增三个 pytest 测试：合法 JSON 能读取、文件缺失有明确异常、损坏 JSON 有明确异常。测试使用 `tmp_path` 创建临时文件，不会在项目中遗留测试数据。
+今天新增三个 pytest 测试：合法 JSONL 与空白行、空文件、第二行损坏。测试继续使用 `tmp_path`，不会遗留测试数据。
 
 ### 常见错误
 
-1. 忘记指定 `encoding="utf-8"`，可能在不同系统得到不同编码行为。
-2. 把 `json.load()` 和 `json.loads()` 混淆；这里输入是字符串，所以使用 `loads()`。
-3. 在 `except` 中只写 `raise`，会原样抛出底层异常，无法通过今天对清晰错误信息的测试。
+1. 忘记缩进：文件操作必须放在 `with` 代码块中。
+2. 用单独的“有效记录计数”作为行号，导致存在空白行时报告错误位置不准确。
+3. 对空白行直接执行 `json.loads()`，会把空行误报为坏 JSON。
 
 ### 复习问题
 
-1. 文件存在是否就代表其中一定是合法 JSON？为什么？
-2. `json.loads()` 的输入和输出分别是什么？
-3. `raise NewError(...) from exc` 中的 `from exc` 有什么价值？
+1. `with` 如何保证发生异常时文件仍然会被关闭？
+2. 为什么要使用 `enumerate(file, start=1)`，而不是自己只在成功解码后把计数器加一？
+3. JSON 与 JSONL 在文件结构和读取方式上有什么区别？
 
 ### 通关标准
 
 - 3 个 TODO 均由你完成，且没有修改测试。
-- 全部 8 个测试通过。
-- 能解释文件读取与 JSON 解码为什么是两个步骤。
+- 全部 11 个测试通过。
+- 能解释 `with`、逐行读取和真实文件行号。
 - 能用自己的话回答 3 道复习题。
-- 完成 `LEARNING_LOG.md` 的 Day 3 记录。
+- 完成 `LEARNING_LOG.md` 的 Day 4 记录。
 
 ## 环境要求
 

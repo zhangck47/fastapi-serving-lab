@@ -98,22 +98,40 @@ def load_benchmark_record(file_path: Path) -> dict[str, object]:
     """Read one benchmark record from a UTF-8 JSON file."""
 
     try:
-        # TODO 1: 使用 file_path.read_text(encoding="utf-8") 读取文件，
-        # 将结果保存到带 str 类型标注的 file_contents 变量。
+        # Day 3: 读取 UTF-8 文本。
         file_contents: str = file_path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
-        # TODO 2: 抛出新的 FileNotFoundError，消息包含：
-        # Benchmark file not found: <文件路径>
-        # 使用 "raise ... from exc" 保留原始异常原因。
         raise FileNotFoundError(f"Benchmark file not found: {file_path}") from exc
 
     try:
-        # TODO 3: 使用 json.loads(file_contents) 解码 JSON，保存到 record，
-        # 然后返回 record。若发生 json.JSONDecodeError，则在 except 中
-        # 抛出 ValueError，消息包含：Invalid JSON in benchmark file: <文件路径>，
-        # 同样使用 "raise ... from exc"。
+        # Day 3: 解码 JSON，并将底层解码错误转换成清晰的业务错误。
         record: dict[str, object] = json.loads(file_contents)
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON in benchmark file: {file_path}") from exc
 
     return record
+
+
+def load_benchmark_records(file_path: Path) -> list[dict[str, object]]:
+    """Read benchmark records from a UTF-8 JSONL file."""
+
+    records: list[dict[str, object]] = []
+
+    try:
+        # Day 4: with 会在正常结束或异常时自动关闭文件。
+        with file_path.open("r", encoding="utf-8") as file:
+            # Day 4: 逐行读取，并保留与文件一致的真实行号。
+            for line_number, line in enumerate(file, start=1):
+                line = line.strip()
+                if not line:
+                    continue
+                record: dict[str, object] = json.loads(line)
+                records.append(record)
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"Benchmark JSONL file not found: {file_path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"Invalid JSON on line {line_number} in benchmark file: {file_path}"
+        ) from exc
+
+    return records

@@ -8,6 +8,7 @@ from benchmark_parser import (
     collect_model_names,
     filter_successful_records,
     load_benchmark_record,
+    load_benchmark_records,
     summarize_record,
 )
 
@@ -77,3 +78,45 @@ def test_load_benchmark_record_reports_invalid_json(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="Invalid JSON in benchmark file"):
         load_benchmark_record(invalid_file)
+
+
+def test_load_benchmark_records_reads_jsonl_and_skips_blank_lines(
+    tmp_path: Path,
+) -> None:
+    jsonl_file = tmp_path / "benchmark.jsonl"
+    jsonl_file.write_text(
+        '{"request_id": "req_001", "model": "mock-llm"}\n'
+        "\n"
+        '{"request_id": "req_002", "model": "fast-llm"}\n',
+        encoding="utf-8",
+    )
+
+    records = load_benchmark_records(jsonl_file)
+
+    assert records == [
+        {"request_id": "req_001", "model": "mock-llm"},
+        {"request_id": "req_002", "model": "fast-llm"},
+    ]
+
+
+def test_load_benchmark_records_returns_empty_list_for_empty_file(
+    tmp_path: Path,
+) -> None:
+    empty_file = tmp_path / "empty.jsonl"
+    empty_file.write_text("", encoding="utf-8")
+
+    assert load_benchmark_records(empty_file) == []
+
+
+def test_load_benchmark_records_reports_bad_line_number(tmp_path: Path) -> None:
+    invalid_file = tmp_path / "invalid.jsonl"
+    invalid_file.write_text(
+        '{"request_id": "req_001"}\n'
+        '{"request_id": }\n'
+        '{"request_id": "req_003"}\n',
+        encoding="utf-8",
+    )
+
+    expected_message = "Invalid JSON on line 2 in benchmark file"
+    with pytest.raises(ValueError, match=expected_message):
+        load_benchmark_records(invalid_file)

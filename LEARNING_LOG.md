@@ -89,3 +89,44 @@
    - 输入是包含 JSON 内容的字符串、字节或字节数组；本项目传入的是 `read_text()` 得到的字符串。输出是对应的 Python 对象，例如 JSON 对象会转换成 `dict`，JSON 数组会转换成 `list`。
 3. `raise NewError(...) from exc` 中的 `from exc` 有什么价值？
    - 它把新的业务层错误和原始底层错误连接起来。调用者能看到更容易理解的新错误，调试时也能沿异常链找到真正的底层原因。
+
+## Day 4（2026-08-13）
+
+- 今天学了什么：
+  - 使用 `with` 上下文管理器打开文件，让文件在正常结束或发生异常时都能自动关闭
+  - 使用 `enumerate(file, start=1)` 逐行读取 JSONL，并获得与编辑器一致的真实行号
+  - 使用 `line.strip()` 识别并跳过空白行，再用 `json.loads()` 解码每个非空行
+  - 将坏行的 `JSONDecodeError` 转换为包含行号和文件路径的 `ValueError`
+- 我独立写了什么：
+  - 完成 `load_benchmark_records()` 的 3 个 TODO
+  - 实现合法 JSONL 的逐行读取、空白行跳过和空文件处理
+  - 实现损坏 JSON 行的准确定位，并使用 `raise ... from exc` 保留异常链
+  - 通关验证：`.\.venv\Scripts\python.exe -m pytest -q` 结果为 `11 passed`
+- 遇到了什么错误：
+  - pytest 为 `tmp_path` 准备目录时出现 `PermissionError: [WinError 5] 拒绝访问`
+  - 错误先后出现在 Windows 默认目录 `pytest-of-zck` 和项目共享目录 `.pytest-tmp`
+  - 代码审查发现循环内部提前把 `JSONDecodeError` 转成了 `ValueError`，使外层同类异常处理分支无法执行
+- 错误原因是什么：
+  - Codex 测试进程的真实 Windows 登录身份是 `CodexSandboxOffline`，而普通终端身份是 `zck`
+  - Python 环境变量仍让部分用户识别函数返回 `zck`，造成目录名称像属于 `zck`，实际 ACL 所有者却是沙箱身份
+  - 两个身份复用同一个 pytest 临时目录时，一方创建的私有 ACL 会导致另一方无法访问或清理
+  - 异常处理方面，内部 `except` 已经改变异常类型，外层 `except json.JSONDecodeError` 因而成为不可达分支
+- 解决办法：
+  - 在 `tests/conftest.py` 中使用 `os.getlogin()` 取得真实登录身份
+  - 为不同身份分配独立的同级目录：`.pytest-tmp-zck` 和 `.pytest-tmp-CodexSandboxOffline`
+  - 在 `.gitignore` 中忽略 `.pytest-tmp-*/`，避免临时数据进入 Git
+  - 删除内部重复的异常转换，由外层统一添加行号、路径和异常链
+- 明天需要复习什么：
+  - `with` 的进入、退出和自动清理作用
+  - JSON 与 JSONL 的文件结构和读取方式差异
+  - 为什么真实文件行号必须在跳过空行之前由 `enumerate` 生成
+  - 为什么异常不应在多个层级被重复捕获和转换
+
+### Day 4 复习问题答案
+
+1. `with` 如何保证发生异常时文件仍然会被关闭？
+   - 文件对象是上下文管理器。进入 `with` 时打开资源，离开代码块时 Python 会调用它的退出逻辑；无论正常结束还是因异常退出，退出逻辑都会关闭文件。
+2. 为什么要使用 `enumerate(file, start=1)`，而不是只在成功解码后增加计数器？
+   - `enumerate` 对文件中的每一行计数，包括之后被跳过的空白行，因此得到的行号与编辑器中的真实位置一致。只在成功解码后计数会漏掉空行，也无法准确指出损坏行。
+3. JSON 与 JSONL 在文件结构和读取方式上有什么区别？
+   - JSON 文件通常整体构成一个合法 JSON 值，需要整体解码；JSONL 每个非空行都是一个独立 JSON 值，适合逐行读取和处理，不必一次把整个文件放入内存。
