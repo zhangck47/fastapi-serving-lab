@@ -14,64 +14,64 @@
 
 ## 当前进度
 
-第 4 天：从 JSONL 文件逐行读取多条压测记录，并在坏行出现时报告准确行号。
+第 5 天已通过：把单文件代码拆成职责清晰的 Python 包，并理解虚拟环境如何隔离项目。
 
-今天只修改 [src/benchmark_parser.py](src/benchmark_parser.py) 中 `load_benchmark_records()` 的 3 个 TODO，不修改测试来迁就实现。
+Day 5 的 3 个 TODO 已完成，完整测试结果为 `14 passed`（2026-08-17）。
 
-当前状态（2026-08-13）：Day 4 代码、异常处理、权限问题复盘和自动化测试均已完成，结果为 `11 passed`。
-
-JSONL 不是一个大 JSON 数组，而是“一行一个独立 JSON 对象”：
+当前目录结构：
 
 ```text
-{"request_id": "req_001", "model": "mock-llm"}
-{"request_id": "req_002", "model": "fast-llm"}
+src/
+└── serving_lab/
+    ├── __init__.py
+    ├── loaders.py
+    └── metrics.py
 ```
 
-期望行为：
+- `metrics.py`：统计、筛选和示例数据。
+- `loaders.py`：JSON/JSONL 文件读取。
+- `__init__.py`：定义调用者能从包顶层使用的公开接口。
 
-- 每个非空行解码为一条 `dict`，并按照文件顺序加入列表。
-- 空白行跳过；空文件返回 `[]`。
-- 某一行 JSON 损坏时，错误信息指出真实文件行号。
-
-## Day 4 学习任务
+## Day 5 学习任务
 
 ### 今日目标
 
-1. 使用 `with` 管理文件打开与关闭。
-2. 使用 `enumerate(..., start=1)` 逐行读取并记录行号。
-3. 在 JSONL 损坏时报告准确坏行。
+1. 理解模块、包和导入路径的关系。
+2. 使用 `__init__.py` 提供稳定的包级公开接口。
+3. 理解 `.venv` 如何隔离解释器和依赖。
 
 ### 必要知识
 
-`with` 是上下文管理器语法。离开缩进块时，无论正常结束还是发生异常，文件都会自动关闭：
+一个 `.py` 文件就是一个模块。包含 `__init__.py` 的目录可以作为普通 Python 包：
 
 ```python
-with file_path.open("r", encoding="utf-8") as file:
-    ...
+from serving_lab.metrics import summarize_record
 ```
 
-直接遍历文件会一行一行读取，不必先把整个文件装入内存。`enumerate` 同时提供行号和内容：
+包可以在 `__init__.py` 中重新导出常用名称，让调用者使用更稳定的入口：
 
 ```python
-for line_number, line in enumerate(file, start=1):
-    ...
+from serving_lab import summarize_record
 ```
 
-`start=1` 让行号与编辑器里看到的行号一致。空白行也占用真实文件行号，即使它被跳过。
+`__all__` 是公开接口清单，表达“这个包希望外部使用哪些名称”。它不是安全机制，也不会自动导入名称。
+
+虚拟环境 `.venv` 提供独立解释器和依赖目录，避免不同项目的包版本互相污染。当前 editable 安装通过 `.pth` 把项目的 `src` 放入虚拟环境导入路径，拆包后无需安装新依赖。
 
 ### 今天修改的文件
 
-- `src/benchmark_parser.py`：增加 JSONL 多记录读取函数。
-- `tests/test_benchmark_parser.py`：覆盖合法多行、空文件和坏行行号。
-- `README.md`：记录 Day 4 的任务说明。
-- `ROADMAP.md`：更新 Day 4 进度。
-- `LEARNING_LOG.md`：提供 Day 4 复盘模板。
+- `src/serving_lab/metrics.py`：统计和筛选职责。
+- `src/serving_lab/loaders.py`：文件读取职责。
+- `src/serving_lab/__init__.py`：需要你完成的包公开接口。
+- `tests/test_benchmark_parser.py`：验证原有功能和包公开接口。
+- `pyproject.toml`：从单模块打包改为自动发现 `src` 下的包。
+- `README.md`、`ROADMAP.md`、`LEARNING_LOG.md`：Day 5 学习材料。
 
-### 我的编码任务
+### 我的编码任务（已完成）
 
-- `TODO 1`：用 `with` 打开 UTF-8 JSONL 文件。
-- `TODO 2`：逐行读取，跳过空行，解码并收集记录。
-- `TODO 3`：把坏行异常转换成包含真实行号和路径的 `ValueError`。
+- 从 `.metrics` 相对导入五个统计相关名称。
+- 从 `.loaders` 相对导入两个读取函数。
+- 在 `__all__` 中按测试要求列出七个公开名称。
 
 ### 运行命令
 
@@ -79,39 +79,39 @@ for line_number, line in enumerate(file, start=1):
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-这条命令使用项目虚拟环境运行全部测试，确保 Day 3 没有破坏前两天功能。
+这条命令使用项目虚拟环境运行全部测试，验证拆包没有改变前四天的行为。
 
 ### 预期结果
 
-完成 TODO 前，Day 4 测试会失败；正确完成后应看到：
+完成 TODO 前，原有功能测试仍应通过，新增包接口测试会失败；正确完成后应看到：
 
 ```text
-11 passed
+14 passed
 ```
 
 ### 测试
 
-今天新增三个 pytest 测试：合法 JSONL 与空白行、空文件、第二行损坏。测试继续使用 `tmp_path`，不会遗留测试数据。
+今天新增三个测试：包顶层公开统计函数、公开读取函数、声明完整 `__all__`。原有 11 个测试改为从职责模块导入，以证明拆分没有改变功能。
 
 ### 常见错误
 
-1. 忘记缩进：文件操作必须放在 `with` 代码块中。
-2. 用单独的“有效记录计数”作为行号，导致存在空白行时报告错误位置不准确。
-3. 对空白行直接执行 `json.loads()`，会把空行误报为坏 JSON。
+1. 在包内写 `from metrics import ...`，Python 会寻找顶级模块；应使用 `.metrics` 相对导入。
+2. 只填写 `__all__` 却没有真正导入名称；`__all__` 不会自动创建包属性。
+3. 使用系统 `python` 而不是 `.venv` 中的解释器，导致导入路径或依赖版本不同。
 
 ### 复习问题
 
-1. `with` 如何保证发生异常时文件仍然会被关闭？
-2. 为什么要使用 `enumerate(file, start=1)`，而不是自己只在成功解码后把计数器加一？
-3. JSON 与 JSONL 在文件结构和读取方式上有什么区别？
+1. 模块和包分别是什么？本项目中的例子是什么？
+2. 为什么调用者使用 `from serving_lab import ...`，通常比依赖内部模块路径更稳定？
+3. 虚拟环境解决了什么问题？它会自动改变你的 Python 源代码吗？
 
 ### 通关标准
 
 - 3 个 TODO 均由你完成，且没有修改测试。
-- 全部 11 个测试通过。
-- 能解释 `with`、逐行读取和真实文件行号。
+- 全部 14 个测试通过。
+- 能解释模块、包、`__init__.py`、`__all__` 和虚拟环境的作用。
 - 能用自己的话回答 3 道复习题。
-- 完成 `LEARNING_LOG.md` 的 Day 4 记录。
+- 完成 `LEARNING_LOG.md` 的 Day 5 记录。
 
 ## 环境要求
 

@@ -1,14 +1,14 @@
 from pathlib import Path
 
 import pytest
+import serving_lab
 
-from benchmark_parser import (
+from serving_lab.loaders import load_benchmark_record, load_benchmark_records
+from serving_lab.metrics import (
     SAMPLE_RECORDS,
     SAMPLE_RESULT,
     collect_model_names,
     filter_successful_records,
-    load_benchmark_record,
-    load_benchmark_records,
     summarize_record,
 )
 
@@ -120,3 +120,26 @@ def test_load_benchmark_records_reports_bad_line_number(tmp_path: Path) -> None:
     expected_message = "Invalid JSON on line 2 in benchmark file"
     with pytest.raises(ValueError, match=expected_message):
         load_benchmark_records(invalid_file)
+
+
+def test_package_exposes_metric_helpers() -> None:
+    assert serving_lab.summarize_record is summarize_record
+    assert serving_lab.filter_successful_records is filter_successful_records
+    assert serving_lab.collect_model_names is collect_model_names
+
+
+def test_package_exposes_loader_helpers() -> None:
+    assert serving_lab.load_benchmark_record is load_benchmark_record
+    assert serving_lab.load_benchmark_records is load_benchmark_records
+
+
+def test_package_declares_public_api() -> None:
+    assert serving_lab.__all__ == [
+        "SAMPLE_RECORDS",
+        "SAMPLE_RESULT",
+        "collect_model_names",
+        "filter_successful_records",
+        "summarize_record",
+        "load_benchmark_record",
+        "load_benchmark_records",
+    ]

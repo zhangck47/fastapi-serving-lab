@@ -19,6 +19,5 @@ dev = [
 pythonpath = ["src"]
 testpaths = ["tests"]
 
-[tool.setuptools]
-py-modules = ["benchmark_parser"]
-package-dir = {"" = "src"}
+[tool.setuptools.packages.find]
+where = ["src"]
