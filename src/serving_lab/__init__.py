@@ -8,6 +8,12 @@ from .metrics import (
     filter_successful_records,
     summarize_record,
 )
+from .models import (
+    BenchmarkRecord,
+    BenchmarkSummary,
+    benchmark_record_from_dict,
+    summarize_benchmark_record,
+)
 
 __all__: list[str] = [
     "SAMPLE_RECORDS",
@@ -17,4 +23,8 @@ __all__: list[str] = [
     "summarize_record",
     "load_benchmark_record",
     "load_benchmark_records",
+    "BenchmarkRecord",
+    "BenchmarkSummary",
+    "benchmark_record_from_dict",
+    "summarize_benchmark_record",
 ]

@@ -14,9 +14,9 @@
 
 ## 当前进度
 
-第 5 天已通过：把单文件代码拆成职责清晰的 Python 包，并理解虚拟环境如何隔离项目。
+第 6 天已通过：用 `dataclass` 把压测记录从宽泛字典转换成字段明确的对象。
 
-Day 5 的 3 个 TODO 已完成，完整测试结果为 `14 passed`（2026-08-17）。
+Day 6 的 3 个 TODO 已完成，完整测试结果为 `18 passed`（2026-08-18）。
 
 当前目录结构：
 
@@ -25,53 +25,56 @@ src/
 └── serving_lab/
     ├── __init__.py
     ├── loaders.py
-    └── metrics.py
+    ├── metrics.py
+    └── models.py
 ```
 
 - `metrics.py`：统计、筛选和示例数据。
 - `loaders.py`：JSON/JSONL 文件读取。
+- `models.py`：压测记录与汇总结果的数据类。
 - `__init__.py`：定义调用者能从包顶层使用的公开接口。
 
-## Day 5 学习任务
+## Day 6 学习任务
 
 ### 今日目标
 
-1. 理解模块、包和导入路径的关系。
-2. 使用 `__init__.py` 提供稳定的包级公开接口。
-3. 理解 `.venv` 如何隔离解释器和依赖。
+1. 理解类是对象的结构说明，对象是一份具体数据。
+2. 使用 `@dataclass` 简化只负责保存数据的类。
+3. 使用 `bool | None` 表达“布尔值可能缺失”。
 
 ### 必要知识
 
-一个 `.py` 文件就是一个模块。包含 `__init__.py` 的目录可以作为普通 Python 包：
+类像一张字段模板，对象是按照模板创建的一条具体记录：
 
 ```python
-from serving_lab.metrics import summarize_record
+record = BenchmarkRecord(request_id="req_001", ...)
+print(record.request_id)
 ```
 
-包可以在 `__init__.py` 中重新导出常用名称，让调用者使用更稳定的入口：
+`@dataclass` 会根据字段标注自动生成初始化和比较等基础代码。你只需要声明数据应有哪些字段：
 
 ```python
-from serving_lab import summarize_record
+@dataclass
+class Example:
+    name: str
+    cache_hit: bool | None = None
 ```
 
-`__all__` 是公开接口清单，表达“这个包希望外部使用哪些名称”。它不是安全机制，也不会自动导入名称。
-
-虚拟环境 `.venv` 提供独立解释器和依赖目录，避免不同项目的包版本互相污染。当前 editable 安装通过 `.pth` 把项目的 `src` 放入虚拟环境导入路径，拆包后无需安装新依赖。
+`bool | None` 表示值可以是 `True`、`False` 或 `None`。这里的 `None` 不是“缓存未命中”，而是“原始记录没有提供缓存信息”。有默认值的字段必须写在无默认值字段之后。
 
 ### 今天修改的文件
 
-- `src/serving_lab/metrics.py`：统计和筛选职责。
-- `src/serving_lab/loaders.py`：文件读取职责。
-- `src/serving_lab/__init__.py`：需要你完成的包公开接口。
-- `tests/test_benchmark_parser.py`：验证原有功能和包公开接口。
-- `pyproject.toml`：从单模块打包改为自动发现 `src` 下的包。
-- `README.md`、`ROADMAP.md`、`LEARNING_LOG.md`：Day 5 学习材料。
+- `src/serving_lab/models.py`：包含 3 个待完成 TODO，以及已经写好的对象汇总函数。
+- `src/serving_lab/__init__.py`：将四个新名称加入包公开接口。
+- `tests/test_models.py`：覆盖对象创建、字典转换、可选默认值和汇总结果。
+- `tests/test_benchmark_parser.py`：同步验证新的包公开接口清单。
+- `README.md`、`ROADMAP.md`、`LEARNING_LOG.md`：Day 6 学习材料。
 
 ### 我的编码任务（已完成）
 
-- 从 `.metrics` 相对导入五个统计相关名称。
-- 从 `.loaders` 相对导入两个读取函数。
-- 在 `__all__` 中按测试要求列出七个公开名称。
+- 为 `BenchmarkRecord` 定义八个字段，并让 `cache_hit` 默认等于 `None`。
+- 为 `BenchmarkSummary` 定义五个字段。
+- 在 `benchmark_record_from_dict()` 中把解码后的字典转换成 `BenchmarkRecord`。
 
 ### 运行命令
 
@@ -79,39 +82,39 @@ from serving_lab import summarize_record
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-这条命令使用项目虚拟环境运行全部测试，验证拆包没有改变前四天的行为。
+这条命令使用项目虚拟环境运行全部测试，同时验证 Day 6 新功能和前五天的回归行为。
 
 ### 预期结果
 
-完成 TODO 前，原有功能测试仍应通过，新增包接口测试会失败；正确完成后应看到：
+完成 TODO 前应看到 4 个 Day 6 测试失败、14 个旧测试通过；正确完成后应看到：
 
 ```text
-14 passed
+18 passed
 ```
 
 ### 测试
 
-今天新增三个测试：包顶层公开统计函数、公开读取函数、声明完整 `__all__`。原有 11 个测试改为从职责模块导入，以证明拆分没有改变功能。
+今天新增四个测试：数据类对象和可选字段默认值、字典转换保留缓存状态、缺少缓存字段时得到 `None`、汇总结果的类型和值。
 
 ### 常见错误
 
-1. 在包内写 `from metrics import ...`，Python 会寻找顶级模块；应使用 `.metrics` 相对导入。
-2. 只填写 `__all__` 却没有真正导入名称；`__all__` 不会自动创建包属性。
-3. 使用系统 `python` 而不是 `.venv` 中的解释器，导致导入路径或依赖版本不同。
+1. 把 `cache_hit` 默认值字段写在必要字段之前，会出现 `TypeError: non-default argument ... follows default argument`。
+2. 忘记删除类中的 `pass` 虽然通常不影响运行，但会留下已经失去意义的占位代码。
+3. 用 `data["cache_hit"]` 读取可选字段，字段缺失时会抛出 `KeyError`；这里应使用 `data.get("cache_hit")`。
 
 ### 复习问题
 
-1. 模块和包分别是什么？本项目中的例子是什么？
-2. 为什么调用者使用 `from serving_lab import ...`，通常比依赖内部模块路径更稳定？
-3. 虚拟环境解决了什么问题？它会自动改变你的 Python 源代码吗？
+1. 类和对象是什么关系？请用 `BenchmarkRecord` 举例。
+2. 相比一直传递 `dict[str, object]`，`dataclass` 在可读性和错误发现方面有什么好处？
+3. `cache_hit=False` 与 `cache_hit=None` 分别表示什么？为什么不能混为一谈？
 
 ### 通关标准
 
 - 3 个 TODO 均由你完成，且没有修改测试。
-- 全部 14 个测试通过。
-- 能解释模块、包、`__init__.py`、`__all__` 和虚拟环境的作用。
+- 全部 18 个测试通过。
+- 能解释类、对象、`dataclass` 和可选值的作用。
 - 能用自己的话回答 3 道复习题。
-- 完成 `LEARNING_LOG.md` 的 Day 5 记录。
+- 完成 `LEARNING_LOG.md` 的 Day 6 记录。
 
 ## 环境要求
 
