@@ -142,6 +142,7 @@ def test_package_declares_public_api() -> None:
         "summarize_record",
         "load_benchmark_record",
         "load_benchmark_records",
+        "iter_benchmark_records",
         "BenchmarkRecord",
         "BenchmarkSummary",
         "benchmark_record_from_dict",

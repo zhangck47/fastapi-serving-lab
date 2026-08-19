@@ -1,6 +1,7 @@
 """File loaders for JSON and JSONL benchmark records."""
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
 
 
@@ -41,4 +42,25 @@ def load_benchmark_records(file_path: Path) -> list[dict[str, object]]:
         ) from exc
 
     return records
+
+
+def iter_benchmark_records(
+    file_path: Path,
+) -> Iterator[dict[str, object]]:
+    """Yield benchmark records from a UTF-8 JSONL file one at a time."""
+
+    try:
+        with file_path.open("r", encoding="utf-8") as file:
+            for line_number, line in enumerate(file, start=1):
+                line = line.strip()
+                if not line:
+                    continue
+                record: dict[str, object] = json.loads(line)
+                yield record
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"Benchmark JSONL file not found: {file_path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"Invalid JSON on line {line_number} in benchmark file: {file_path}"
+        ) from exc
 

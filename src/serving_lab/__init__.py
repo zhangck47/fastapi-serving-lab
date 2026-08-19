@@ -1,6 +1,10 @@
 """Public package interface for fastapi-serving-lab."""
 
-from .loaders import load_benchmark_record, load_benchmark_records
+from .loaders import (
+    iter_benchmark_records,
+    load_benchmark_record,
+    load_benchmark_records,
+)
 from .metrics import (
     SAMPLE_RECORDS,
     SAMPLE_RESULT,
@@ -23,6 +27,7 @@ __all__: list[str] = [
     "summarize_record",
     "load_benchmark_record",
     "load_benchmark_records",
+    "iter_benchmark_records",
     "BenchmarkRecord",
     "BenchmarkSummary",
     "benchmark_record_from_dict",

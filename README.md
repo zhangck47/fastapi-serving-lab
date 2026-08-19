@@ -14,9 +14,9 @@
 
 ## 当前进度
 
-第 6 天已通过：用 `dataclass` 把压测记录从宽泛字典转换成字段明确的对象。
+第 7 天已通过：使用生成器逐条读取 JSONL，避免一次把整个文件放入内存。
 
-Day 6 的 3 个 TODO 已完成，完整测试结果为 `18 passed`（2026-08-18）。
+Day 7 的 3 个 TODO 已完成，完整测试结果为 `22 passed`（2026-08-19）。
 
 当前目录结构：
 
@@ -34,47 +34,46 @@ src/
 - `models.py`：压测记录与汇总结果的数据类。
 - `__init__.py`：定义调用者能从包顶层使用的公开接口。
 
-## Day 6 学习任务
+## Day 7 学习任务
 
 ### 今日目标
 
-1. 理解类是对象的结构说明，对象是一份具体数据。
-2. 使用 `@dataclass` 简化只负责保存数据的类。
-3. 使用 `bool | None` 表达“布尔值可能缺失”。
+1. 理解迭代器如何通过 `next()` 一次提供一个值。
+2. 使用 `yield` 编写生成器函数。
+3. 理解惰性执行如何节省内存并支持提前停止。
 
 ### 必要知识
 
-类像一张字段模板，对象是按照模板创建的一条具体记录：
+迭代器像一个“下一条数据”按钮。每次调用 `next()` 才请求一个值：
 
 ```python
-record = BenchmarkRecord(request_id="req_001", ...)
-print(record.request_id)
+records = iter_benchmark_records(path)
+first_record = next(records)
 ```
 
-`@dataclass` 会根据字段标注自动生成初始化和比较等基础代码。你只需要声明数据应有哪些字段：
+只要函数体里出现 `yield`，调用函数时就会先返回生成器对象，不会立刻执行文件读取。第一次 `next()` 才从函数开头运行到第一个 `yield`，之后会记住暂停位置：
 
 ```python
-@dataclass
-class Example:
-    name: str
-    cache_hit: bool | None = None
+def count_two():
+    yield 1
+    yield 2
 ```
 
-`bool | None` 表示值可以是 `True`、`False` 或 `None`。这里的 `None` 不是“缓存未命中”，而是“原始记录没有提供缓存信息”。有默认值的字段必须写在无默认值字段之后。
+`list(generator)` 会把生成器全部消耗并重新收集成列表；只调用一次 `next()` 则只处理第一条。提前停止后，可以调用生成器的 `close()` 让它离开 `with` 并立即关闭文件。
 
 ### 今天修改的文件
 
-- `src/serving_lab/models.py`：包含 3 个待完成 TODO，以及已经写好的对象汇总函数。
-- `src/serving_lab/__init__.py`：将四个新名称加入包公开接口。
-- `tests/test_models.py`：覆盖对象创建、字典转换、可选默认值和汇总结果。
-- `tests/test_benchmark_parser.py`：同步验证新的包公开接口清单。
-- `README.md`、`ROADMAP.md`、`LEARNING_LOG.md`：Day 6 学习材料。
+- `src/serving_lab/loaders.py`：新增惰性 JSONL 生成器，包含 3 个 TODO。
+- `src/serving_lab/__init__.py`：公开 `iter_benchmark_records`。
+- `tests/test_generator_loader.py`：验证延迟打开、顺序、提前停止和坏行定位。
+- `tests/test_benchmark_parser.py`：同步验证包公开接口清单。
+- `README.md`、`ROADMAP.md`、`LEARNING_LOG.md`：Day 7 学习材料。
 
 ### 我的编码任务（已完成）
 
-- 为 `BenchmarkRecord` 定义八个字段，并让 `cache_hit` 默认等于 `None`。
-- 为 `BenchmarkSummary` 定义五个字段。
-- 在 `benchmark_record_from_dict()` 中把解码后的字典转换成 `BenchmarkRecord`。
+- 使用 `with` 和 `enumerate(..., start=1)` 逐行遍历 UTF-8 JSONL 文件。
+- 清理当前行并跳过空白行。
+- 解码非空行，并通过 `yield` 逐条产出记录。
 
 ### 运行命令
 
@@ -82,39 +81,39 @@ class Example:
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-这条命令使用项目虚拟环境运行全部测试，同时验证 Day 6 新功能和前五天的回归行为。
+这条命令使用项目虚拟环境运行全部测试，同时验证 Day 7 生成器和前六天的回归行为。
 
 ### 预期结果
 
-完成 TODO 前应看到 4 个 Day 6 测试失败、14 个旧测试通过；正确完成后应看到：
+完成 TODO 前应看到 4 个 Day 7 测试失败、18 个旧测试通过；正确完成后应看到：
 
 ```text
-18 passed
+22 passed
 ```
 
 ### 测试
 
-今天新增四个测试：数据类对象和可选字段默认值、字典转换保留缓存状态、缺少缓存字段时得到 `None`、汇总结果的类型和值。
+今天新增四个测试：调用时不打开文件、按顺序产出并跳过空行、在后续坏行前提前停止、真正读取坏行时报告准确行号。
 
 ### 常见错误
 
-1. 把 `cache_hit` 默认值字段写在必要字段之前，会出现 `TypeError: non-default argument ... follows default argument`。
-2. 忘记删除类中的 `pass` 虽然通常不影响运行，但会留下已经失去意义的占位代码。
-3. 用 `data["cache_hit"]` 读取可选字段，字段缺失时会抛出 `KeyError`；这里应使用 `data.get("cache_hit")`。
+1. 使用 `return record` 而不是 `yield record`，函数会在第一条记录后直接结束，也不会成为生成器。
+2. 在判断空白行之前调用 `json.loads()`，空白行会被误报为损坏 JSON。
+3. 为了查看结果立刻调用 `list(generator)`，会一次性消耗全部数据，无法体现提前停止的惰性行为。
 
 ### 复习问题
 
-1. 类和对象是什么关系？请用 `BenchmarkRecord` 举例。
-2. 相比一直传递 `dict[str, object]`，`dataclass` 在可读性和错误发现方面有什么好处？
-3. `cache_hit=False` 与 `cache_hit=None` 分别表示什么？为什么不能混为一谈？
+1. 调用生成器函数时为什么还没有读取文件？第一次 `next()` 时会发生什么？
+2. `load_benchmark_records()` 返回列表，与 `iter_benchmark_records()` 返回生成器相比，各自适合什么场景？
+3. 文件第二行是坏 JSON 时，为什么只读取第一条可以不报错？错误会在什么时候出现？
 
 ### 通关标准
 
 - 3 个 TODO 均由你完成，且没有修改测试。
-- 全部 18 个测试通过。
-- 能解释类、对象、`dataclass` 和可选值的作用。
+- 全部 22 个测试通过。
+- 能解释迭代器、生成器、`yield` 和惰性执行过程。
 - 能用自己的话回答 3 道复习题。
-- 完成 `LEARNING_LOG.md` 的 Day 6 记录。
+- 完成 `LEARNING_LOG.md` 的 Day 7 记录。
 
 ## 环境要求
 
