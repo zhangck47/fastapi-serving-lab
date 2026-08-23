@@ -14,9 +14,11 @@
 
 ## 当前进度
 
-第 7 天已通过：使用生成器逐条读取 JSONL，避免一次把整个文件放入内存。
+第 8 天已通过：用 pytest 参数化测试串联 Python 阶段的完整压测解析流程。
 
-Day 7 的 3 个 TODO 已完成，完整测试结果为 `22 passed`（2026-08-19）。
+Day 8 的 3 个 TODO 已完成，完整测试结果为 `26 passed`（2026-08-23）。Python 核心基础阶段已通过。
+
+阶段总结见 [PYTHON_STAGE_REVIEW.md](PYTHON_STAGE_REVIEW.md)，当前项目面试题库见 [INTERVIEW_QA.md](INTERVIEW_QA.md)。面试题库只记录已经实现并能用代码证明的能力，后续阶段完成后继续扩充。
 
 当前目录结构：
 
@@ -26,54 +28,55 @@ src/
     ├── __init__.py
     ├── loaders.py
     ├── metrics.py
-    └── models.py
+    ├── models.py
+    └── pipeline.py
 ```
 
 - `metrics.py`：统计、筛选和示例数据。
 - `loaders.py`：JSON/JSONL 文件读取。
 - `models.py`：压测记录与汇总结果的数据类。
+- `pipeline.py`：连接惰性读取、数据转换和指标汇总。
 - `__init__.py`：定义调用者能从包顶层使用的公开接口。
 
-## Day 7 学习任务
+## Day 8 学习任务
 
 ### 今日目标
 
-1. 理解迭代器如何通过 `next()` 一次提供一个值。
-2. 使用 `yield` 编写生成器函数。
-3. 理解惰性执行如何节省内存并支持提前停止。
+1. 使用 `assert` 写清楚可执行的预期结果。
+2. 使用 `@pytest.mark.parametrize` 让同一测试覆盖多组输入。
+3. 串联并复盘 Python 阶段的完整数据流程。
 
 ### 必要知识
 
-迭代器像一个“下一条数据”按钮。每次调用 `next()` 才请求一个值：
+pytest 的 `assert` 表达“实际结果必须满足什么条件”。条件不成立时，pytest 会指出实际值与预期值的差异：
 
 ```python
-records = iter_benchmark_records(path)
-first_record = next(records)
+assert summary.total_tokens == expected_total_tokens
 ```
 
-只要函数体里出现 `yield`，调用函数时就会先返回生成器对象，不会立刻执行文件读取。第一次 `next()` 才从函数开头运行到第一个 `yield`，之后会记住暂停位置：
+参数化测试把多组输入交给同一个测试函数。每一组参数都会被 pytest 收集成一个独立测试，因此其中一组失败不会隐藏其他组的结果：
 
 ```python
-def count_two():
-    yield 1
-    yield 2
+@pytest.mark.parametrize(("value", "expected"), [(1, 2), (2, 4)])
+def test_double(value: int, expected: int) -> None:
+    assert value * 2 == expected
 ```
 
-`list(generator)` 会把生成器全部消耗并重新收集成列表；只调用一次 `next()` 则只处理第一条。提前停止后，可以调用生成器的 `close()` 让它离开 `with` 并立即关闭文件。
+今天的流水线不引入新算法，只组合已有能力：JSONL 生成器产出字典，转换函数建立 `BenchmarkRecord`，汇总函数再产出 `BenchmarkSummary`。每层只负责一件事。
 
 ### 今天修改的文件
 
-- `src/serving_lab/loaders.py`：新增惰性 JSONL 生成器，包含 3 个 TODO。
-- `src/serving_lab/__init__.py`：公开 `iter_benchmark_records`。
-- `tests/test_generator_loader.py`：验证延迟打开、顺序、提前停止和坏行定位。
+- `src/serving_lab/pipeline.py`：完成端到端惰性流水线实现。
+- `tests/test_pipeline.py`：完成参数化边界用例和惰性异常测试。
+- `src/serving_lab/__init__.py`：公开 `iter_benchmark_summaries`。
 - `tests/test_benchmark_parser.py`：同步验证包公开接口清单。
-- `README.md`、`ROADMAP.md`、`LEARNING_LOG.md`：Day 7 学习材料。
+- `README.md`、`ROADMAP.md`、`LEARNING_LOG.md`：Day 8 学习材料。
 
 ### 我的编码任务（已完成）
 
-- 使用 `with` 和 `enumerate(..., start=1)` 逐行遍历 UTF-8 JSONL 文件。
-- 清理当前行并跳过空白行。
-- 解码非空行，并通过 `yield` 逐条产出记录。
+- 串联 JSONL 惰性读取、字典到数据类转换和指标汇总。
+- 为零 completion 与零 prompt 添加参数化边界用例。
+- 断言汇总数量、对象类型、总 token 数和生成吞吐量。
 
 ### 运行命令
 
@@ -81,39 +84,40 @@ def count_two():
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-这条命令使用项目虚拟环境运行全部测试，同时验证 Day 7 生成器和前六天的回归行为。
+这条命令使用项目虚拟环境运行全部测试。参数化的三组数据会显示为三个独立测试。
 
 ### 预期结果
 
-完成 TODO 前应看到 4 个 Day 7 测试失败、18 个旧测试通过；正确完成后应看到：
+完成 TODO 前应看到 2 个 Day 8 测试失败、22 个旧测试通过；完成两个新增参数组后，正确结果应为：
 
 ```text
-22 passed
+26 passed
 ```
 
 ### 测试
 
-今天新增四个测试：调用时不打开文件、按顺序产出并跳过空行、在后续坏行前提前停止、真正读取坏行时报告准确行号。
+今天的参数化测试覆盖正常数据、零 completion 和零 prompt；另一个测试验证流水线仍保持惰性，并继续报告后续坏行。前七天测试已经覆盖空文件、文件不存在、损坏 JSON 和提前停止。
 
 ### 常见错误
 
-1. 使用 `return record` 而不是 `yield record`，函数会在第一条记录后直接结束，也不会成为生成器。
-2. 在判断空白行之前调用 `json.loads()`，空白行会被误报为损坏 JSON。
-3. 为了查看结果立刻调用 `list(generator)`，会一次性消耗全部数据，无法体现提前停止的惰性行为。
+1. 参数名称顺序与参数元组中的值顺序不一致，导致输入和预期被传错位置。
+2. 只断言 `summaries` 非空，没有检查类型和指标值，测试即使遇到错误计算也可能通过。
+3. 完成代码或断言后忘记删除 `raise NotImplementedError(...)`，程序仍会主动失败。
 
 ### 复习问题
 
-1. 调用生成器函数时为什么还没有读取文件？第一次 `next()` 时会发生什么？
-2. `load_benchmark_records()` 返回列表，与 `iter_benchmark_records()` 返回生成器相比，各自适合什么场景？
-3. 文件第二行是坏 JSON 时，为什么只读取第一条可以不报错？错误会在什么时候出现？
+1. 为什么一个参数化测试函数最终会显示为三个测试？它比复制三份测试函数好在哪里？
+2. 请按顺序解释一条 JSONL 记录从文件到 `BenchmarkSummary` 的完整生命周期。
+3. 正常场景、边界场景和异常场景分别在防止什么类型的问题？本项目中各举一个例子。
 
 ### 通关标准
 
 - 3 个 TODO 均由你完成，且没有修改测试。
-- 全部 22 个测试通过。
-- 能解释迭代器、生成器、`yield` 和惰性执行过程。
+- 全部 26 个测试通过。
+- 能解释 pytest 断言、参数化和测试用例收集方式。
 - 能用自己的话回答 3 道复习题。
-- 完成 `LEARNING_LOG.md` 的 Day 7 记录。
+- 能口述文件读取、JSON 解码、数据类转换、指标汇总和异常传播的职责边界。
+- 完成 `LEARNING_LOG.md` 的 Day 8 记录，达到 Python 阶段通关标准。
 
 ## 环境要求
 

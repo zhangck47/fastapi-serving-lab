@@ -230,3 +230,47 @@
    - 列表适合文件较小、后续需要反复访问全部记录的场景，使用简单但会一次占用与数据量相关的内存。生成器适合大文件、只需单次遍历或可能提前停止的场景，只保留当前处理所需的数据。
 3. 文件第二行是坏 JSON 时，为什么只读取第一条可以不报错？错误会在什么时候出现？
    - 生成器是惰性执行的，第一次 `next()` 只运行到第一条记录的 `yield`，还没有读取第二行。再次调用 `next()` 或用 `list()` 继续消耗生成器、真正解码第二行时，才会出现 JSON 错误。
+
+## Day 8（2026-08-23）
+
+- 今天学了什么：
+  - pytest 的 `assert` 是可执行预期，失败时会显示实际值与期望值
+  - `@pytest.mark.parametrize` 会把每组参数收集成独立测试，减少重复测试代码
+  - 可以把文件读取、JSON 解码、数据类转换和指标计算组合成仍保持惰性的流水线
+  - 正常、边界和异常用例承担不同职责，三者共同构成回归保护
+- 我独立写了什么：
+  - 实现 `iter_benchmark_summaries()`，串联三个已有模块并逐条产出 `BenchmarkSummary`
+  - 添加普通数据、零 completion 和零 prompt 三组参数化用例
+  - 为汇总数量、数据类型、总 token 数和生成吞吐量编写断言
+  - 通关验证：`.\\.venv\\Scripts\\python.exe -m pytest -q` 结果为 `26 passed`
+- 遇到了什么错误：
+  - 零 prompt 用例最初期望 `tokens_per_second` 为 `float("inf")`，实际结果为 `10.0`
+  - 当时测试结果为 `1 failed, 25 passed`
+- 错误原因是什么：
+  - 把零 prompt token 误认为吞吐量公式的分母为零
+  - 实际公式是 `completion_tokens / (latency_ms / 1000)`，prompt token 不参与生成吞吐量计算
+  - 按原输入 `5 completion tokens / 0.5 seconds`，正确结果应为 `10.0`；最终按题目改成 250ms，对应 `20.0`
+- 明天需要复习什么：
+  - 参数列表、测试函数参数和期望值的对应关系
+  - 一条记录从 JSONL 文件到 `BenchmarkSummary` 的完整生命周期
+  - 类型标注说明、运行时校验和自动化测试三者的职责区别
+  - Python 阶段各模块的职责边界和异常传播路径
+
+### Day 8 复习问题答案
+
+1. 为什么一个参数化测试函数最终会显示为三个测试？相比复制三份测试有什么好处？
+   - `@pytest.mark.parametrize` 会为参数列表中的每个参数组分别调用一次测试函数，所以三组数据会被收集成三个独立用例。它把共同的准备、调用和断言逻辑只写一次，新增边界数据时只添加参数，能够减少复制错误并保持各用例行为一致。
+2. 请按顺序解释一条 JSONL 记录到 `BenchmarkSummary` 的完整生命周期。
+   - `iter_benchmark_records()` 打开 UTF-8 JSONL 文件并逐行读取，跳过空行后用 `json.loads()` 得到字典；`benchmark_record_from_dict()` 将字典转换成 `BenchmarkRecord`；`summarize_benchmark_record()` 计算总 token 数和每秒生成 token 数并返回 `BenchmarkSummary`；`iter_benchmark_summaries()` 使用 `yield` 将汇总逐条交给调用者。
+3. 正常、边界和异常测试分别防止什么问题？本项目中各举一个例子。
+   - 正常测试确认常见输入能够得到正确业务结果，例如 12 个 prompt token 和 8 个 completion token 得到总数 20。边界测试检查合法但极端的数据，例如 completion 为零时吞吐量应为 0.0。异常测试确认错误输入不会被静默接受，例如损坏 JSONL 应报告准确坏行行号。
+
+## Python 核心基础阶段通关（Day 1～Day 8）
+
+- 已能处理 JSON、JSONL、文件不存在和格式损坏等场景
+- 已能使用函数、类型标注、模块、包、数据类与可选值组织代码
+- 已能使用上下文管理器与生成器进行资源安全的惰性读取
+- 已能编写普通、边界、异常和参数化 pytest 测试
+- 已能解释当前压测解析流水线的职责、执行顺序和主要设计取舍
+- 阶段总结：`PYTHON_STAGE_REVIEW.md`
+- 面试题库：`INTERVIEW_QA.md`

@@ -18,6 +18,7 @@ from .models import (
     benchmark_record_from_dict,
     summarize_benchmark_record,
 )
+from .pipeline import iter_benchmark_summaries
 
 __all__: list[str] = [
     "SAMPLE_RECORDS",
@@ -32,4 +33,5 @@ __all__: list[str] = [
     "BenchmarkSummary",
     "benchmark_record_from_dict",
     "summarize_benchmark_record",
+    "iter_benchmark_summaries",
 ]
