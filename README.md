@@ -6,7 +6,8 @@
 
 - 每天投入 60～90 分钟。
 - 每天只增加 2～3 个核心概念。
-- 顺序固定为：最少理论、立即编码、pytest 测试、复盘。
+- Day 9 起先阅读独立的 `docs/day-XX-concepts.md`，理解概念后再开始 TODO。
+- 顺序固定为：概念讲义、独立编码、pytest 测试、复盘。
 - 当天通关后才进入下一天。
 - 不使用真实 API Key、GPU、公司网络或公司文件。
 
@@ -14,9 +15,9 @@
 
 ## 当前进度
 
-第 8 天已通过：用 pytest 参数化测试串联 Python 阶段的完整压测解析流程。
+第 8 天已通过：用 pytest 参数化测试串联 Python 阶段的完整压测解析流程。第 9 天已通过：完成第一个 FastAPI `GET /health` 接口和 `TestClient` 测试。
 
-Day 8 的 3 个 TODO 已完成，完整测试结果为 `26 passed`（2026-08-23）。Python 核心基础阶段已通过。
+Day 9 的 3 个 TODO 已完成，完整测试结果为 `29 passed`（2026-08-29）。Python 核心基础阶段已通过，HTTP、FastAPI 和 pytest 阶段正在进行。
 
 阶段总结见 [PYTHON_STAGE_REVIEW.md](PYTHON_STAGE_REVIEW.md)，当前项目面试题库见 [INTERVIEW_QA.md](INTERVIEW_QA.md)。面试题库只记录已经实现并能用代码证明的能力，后续阶段完成后继续扩充。
 
@@ -26,17 +27,116 @@ Day 8 的 3 个 TODO 已完成，完整测试结果为 `26 passed`（2026-08-23�
 src/
 └── serving_lab/
     ├── __init__.py
+    ├── app.py
     ├── loaders.py
     ├── metrics.py
     ├── models.py
     └── pipeline.py
 ```
 
+Day 9 起的概念讲义保存在 `docs/`，当天讲义与 TODO 代码分开。先阅读讲义中的最小示例和检查问题，再开始修改源码。
+
 - `metrics.py`：统计、筛选和示例数据。
 - `loaders.py`：JSON/JSONL 文件读取。
 - `models.py`：压测记录与汇总结果的数据类。
 - `pipeline.py`：连接惰性读取、数据转换和指标汇总。
 - `__init__.py`：定义调用者能从包顶层使用的公开接口。
+
+## Day 9 学习任务
+
+### 今日目标
+
+1. 能说清 HTTP 请求和响应的方向及最小组成。
+2. 能解释 GET 方法与 URL 路径如何共同定位一个操作。
+3. 能完成 `/health` 路由，并使用 `TestClient` 从 HTTP 入口测试它。
+
+### 必要知识
+
+先完整阅读 [docs/day-09-concepts.md](docs/day-09-concepts.md)。讲义使用不同的 `/ping` 示例介绍 HTTP 请求/响应、GET、FastAPI 路由和 `TestClient`，不会直接给出今天 TODO 的完整答案。
+
+开始编码前，应先能回答讲义末尾的 5 个基础问题。今天暂不学习 POST 请求体、Pydantic 模型、异步或服务器部署。
+
+### 今天修改的文件
+
+- `docs/day-09-concepts.md`：Day 9 独立概念讲义。
+- `src/serving_lab/app.py`：FastAPI 应用和 `/health` 的 3 个 TODO。
+- `tests/test_health.py`：从 HTTP 入口验证状态码、JSON 和 GET 方法。
+- `pyproject.toml`：记录 FastAPI 运行依赖和 httpx 测试依赖。
+- `ROADMAP.md`：记录 Day 9 进度和长期“先讲义、后 TODO”规则。
+- `LEARNING_LOG.md`：提供 Day 9 学习记录模板。
+- `README.md`：提供完整的 Day 9 学习任务和通关标准。
+
+### 我的编码任务（已完成）
+
+- `TODO 1`：使用 GET 路由装饰器，把 `health()` 注册到 `/health`。
+- `TODO 2`：为 `health()` 添加准确的返回值类型标注。
+- `TODO 3`：返回 `{"status": "ok"}`，让 FastAPI 生成 JSON 响应。
+
+不要修改测试来迎合当前占位实现。三个 TODO 完成后，测试应自然转绿。
+
+### 运行命令
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+这条命令使用项目虚拟环境运行完整测试，既验证 Day 9 的 HTTP 接口，也防止破坏阶段 1 的解析器。
+
+### 预期结果
+
+课程骨架尚未注册 `/health` 时，预期结果为：
+
+```text
+3 failed, 26 passed
+```
+
+失败分别对应 GET 状态码、JSON 响应体和 POST 方法检查，它们都由当时尚未完成的 TODO 引起。三个 TODO 已完成，当前结果为：
+
+```text
+29 passed
+```
+
+当前最新依赖组合还可能显示一条 `StarletteDeprecationWarning`。它来自 FastAPI/Starlette 的上游依赖过渡，不是 TODO 失败，也不影响今天的测试结论。
+
+### 测试
+
+`tests/test_health.py` 使用 `TestClient` 覆盖：
+
+1. `GET /health` 返回状态码 `200`。
+2. 响应 JSON 为 `{"status": "ok"}`。
+3. `POST /health` 返回 `405`，证明路由只允许 GET。
+
+### 常见错误
+
+1. 把路径写成 `"health"`，忘记 URL 路径必须以 `/` 开头。
+2. 把装饰器写成 `@app.get`，忘记调用 `.get("/health")`。
+3. 返回 JSON 字符串 `'{"status": "ok"}'`，而不是让 FastAPI 转换 Python 字典。
+
+### 复习问题
+
+1. 一次 `client.get("/health")` 从请求产生到断言响应，按顺序发生了什么？
+2. 为什么 `GET /health` 应为 `200`，而 `POST /health` 应为 `405`？`404` 又表示什么？
+3. 为什么接口测试既要检查 `response.status_code`，又要检查 `response.json()`？
+
+### 通关标准
+
+- 先阅读概念讲义并能回答其中 5 个基础检查问题。
+- 独立完成 `app.py` 的 `TODO 1`、`TODO 2`、`TODO 3`，不修改测试预期。
+- 完整测试达到 `29 passed`。
+- 能用自己的话回答 3 道复习题。
+- 按模板完成 `LEARNING_LOG.md` 的 Day 9 记录。
+
+以上通关条件已于 2026-08-29 全部完成。
+
+### 学习记录
+
+把以下内容填写到 `LEARNING_LOG.md` 的 Day 9 部分：
+
+- 今天学了什么
+- 我独立写了什么
+- 遇到了什么错误
+- 错误原因是什么
+- 明天需要复习什么
 
 ## Day 8 学习任务
 
@@ -122,7 +222,9 @@ def test_double(value: int, expected: int) -> None:
 ## 环境要求
 
 - 目标版本：Python 3.12
-- 开发测试：pytest
+- Web 框架：FastAPI 0.141.1
+- 接口测试客户端：httpx 0.28.1
+- 开发测试：pytest 9.1.1
 
 2026-08-05 已完成本机学习环境配置：
 

@@ -274,3 +274,36 @@
 - 已能解释当前压测解析流水线的职责、执行顺序和主要设计取舍
 - 阶段总结：`PYTHON_STAGE_REVIEW.md`
 - 面试题库：`INTERVIEW_QA.md`
+
+## Day 9（2026-08-29）
+
+- 今天学了什么：
+  - HTTP 请求由客户端发给服务端，响应由服务端返回客户端；方法和路径描述请求目标，状态码和响应体描述处理结果
+  - GET 通常用于读取状态；FastAPI 使用“HTTP 方法 + 路径”匹配处理函数
+  - `@app.get("/health")` 把 `health()` 注册为 GET 路由，函数返回的字典会被 FastAPI 转成 JSON
+  - `TestClient` 能在 pytest 进程内访问应用，不需要先启动真实网络服务器
+- 我独立写了什么：
+  - 使用 GET 路由装饰器注册 `/health`
+  - 为 `health()` 添加 `dict[str, str]` 返回值类型标注
+  - 返回 `{"status": "ok"}`，使接口返回状态码 200 和预期 JSON
+  - 通关验证：`.\.venv\Scripts\python.exe -m pytest -q` 结果为 `29 passed`
+- 遇到了什么错误：
+  - 没有功能错误，三个新增接口测试全部通过
+  - 代码审查发现完成实现后仍保留了 TODO 2、TODO 3 注释，并写成了较紧凑的 `dict[str,str]`
+- 错误原因是什么：
+  - Python 允许 `dict[str,str]`，所以不影响运行；但逗号后保留空格更符合常用风格，也更易读
+  - TODO 注释只用于标识未完成任务，功能完成后应删除，否则维护者可能误判代码状态
+- 明天需要复习什么：
+  - HTTP 方法和路径为什么要一起匹配
+  - 200、404、405 三种状态码的区别
+  - FastAPI 如何把 Python 字典转换为 JSON 响应
+  - `TestClient` 接口测试比直接调用函数多验证了什么
+
+### Day 9 复习问题答案
+
+1. 一次 `client.get("/health")` 从请求产生到断言响应，按顺序发生了什么？
+   - `TestClient` 构造 GET 请求并把它交给 FastAPI 应用；FastAPI 使用 GET 方法和 `/health` 路径查找路由，调用 `health()`；函数返回字典后，FastAPI 将其转换为 JSON 响应并使用默认成功状态码 200；测试最后读取 `status_code` 和 `json()` 进行断言。
+2. 为什么 `GET /health` 应为 200，而 `POST /health` 应为 405？404 又表示什么？
+   - GET 方法和 `/health` 路径都能匹配已注册路由，因此成功返回 200。`/health` 路径存在，但只登记了 GET，使用 POST 时方法不允许，所以返回 405。如果没有任何路由能匹配目标路径，则返回 404。
+3. 为什么接口测试既要检查 `response.status_code`，又要检查 `response.json()`？
+   - 状态码验证请求是否按预期成功或失败，JSON 验证实际业务数据。只检查 200 可能漏掉错误响应体，只检查 JSON 又可能漏掉错误的 HTTP 语义，因此两者需要分别断言。
