@@ -15,9 +15,9 @@
 
 ## 当前进度
 
-第 8 天已通过：用 pytest 参数化测试串联 Python 阶段的完整压测解析流程。第 9 天已通过：完成第一个 FastAPI `GET /health` 接口和 `TestClient` 测试。
+第 10 天已通过：完成 URL、Path 参数、Query 参数和 FastAPI 自动类型校验练习。
 
-Day 9 的 3 个 TODO 已完成，完整测试结果为 `29 passed`（2026-08-29）。Python 核心基础阶段已通过，HTTP、FastAPI 和 pytest 阶段正在进行。
+Day 10 的 3 个 TODO 已完成，完整测试结果为 `32 passed`（2026-08-30）。Python 核心基础阶段已通过，HTTP、FastAPI 和 pytest 阶段正在进行。
 
 阶段总结见 [PYTHON_STAGE_REVIEW.md](PYTHON_STAGE_REVIEW.md)，当前项目面试题库见 [INTERVIEW_QA.md](INTERVIEW_QA.md)。面试题库只记录已经实现并能用代码证明的能力，后续阶段完成后继续扩充。
 
@@ -41,6 +41,101 @@ Day 9 起的概念讲义保存在 `docs/`，当天讲义与 TODO 代码分开。
 - `models.py`：压测记录与汇总结果的数据类。
 - `pipeline.py`：连接惰性读取、数据转换和指标汇总。
 - `__init__.py`：定义调用者能从包顶层使用的公开接口。
+
+## Day 10 学习任务
+
+### 今日目标
+
+1. 能指出 URL 中的路径和查询字符串。
+2. 能使用 Path 参数接收 URL 路径中的动态值。
+3. 能使用带类型和默认值的 Query 参数，并理解自动校验产生的 422。
+
+### 必要知识
+
+先完整阅读 [docs/day-10-concepts.md](docs/day-10-concepts.md)。讲义使用不同的 `/products/{product_id}?copies=2` 示例介绍 URL、Path 参数和 Query 参数，不直接提供今天练习路由的完整答案。
+
+开始编码前，应先能回答讲义末尾的 5 个基础问题。今天不学习 POST、请求体、Pydantic 模型或高级参数约束。
+
+### 今天修改的文件
+
+- `docs/day-10-concepts.md`：Day 10 独立概念讲义。
+- `src/serving_lab/app.py`：参数观察路由的 3 个 TODO。
+- `tests/test_parameters.py`：显式 Query、默认 Query 和错误类型测试。
+- `README.md`：Day 10 完整学习任务。
+- `ROADMAP.md`：Day 10 当前进度。
+- `LEARNING_LOG.md`：Day 10 学习记录模板。
+
+### 我的编码任务（已完成）
+
+- `TODO 1`：使用 GET 路由装饰器注册 `/debug/models/{model_name}`。
+- `TODO 2`：让 `model_name` 成为字符串 Path 参数，让 `limit` 成为默认值为 1 的整数 Query 参数，并补充返回值类型。
+- `TODO 3`：返回从 Path 和 Query 实际收到的 `model_name` 与 `limit`。
+
+不要修改测试预期，也不要手工解析 `limit`；让 FastAPI 根据类型标注完成转换和校验。
+
+### 运行命令
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+这条命令使用项目虚拟环境运行完整测试，同时验证 Day 10 参数路由和前 9 天的全部回归行为。
+
+### 预期结果
+
+课程骨架尚未注册参数路由时，预期结果为：
+
+```text
+3 failed, 29 passed
+```
+
+三个失败都由当时尚未完成的 TODO 引起。三个 TODO 已完成，当前结果为：
+
+```text
+32 passed
+```
+
+当前依赖组合还可能显示一条 `StarletteDeprecationWarning`，它不是 TODO 失败。
+
+### 测试
+
+`tests/test_parameters.py` 使用 `TestClient` 覆盖：
+
+1. `/debug/models/mock-llm?limit=3` 能分别读取 Path 和 Query，并把 `limit` 转成整数。
+2. 省略 `limit` 时使用默认值 1。
+3. `limit=many` 无法转换成整数时，FastAPI 自动返回 422。
+
+### 常见错误
+
+1. 路由模板写了 `{model_name}`，函数参数却使用不同名称，导致参数不能正确对应。
+2. 忘记给 `limit` 标注 `int` 或设置默认值 1，导致类型转换、自动校验或省略参数行为不符合预期。
+3. 在函数中自己调用 `int(limit)` 并捕获异常，没有使用 FastAPI 根据类型标注提供的边界校验。
+
+### 复习问题
+
+1. 对请求 `/debug/models/mock-llm?limit=3`，FastAPI 分别从哪里取得 `model_name` 和 `limit`？
+2. 为什么 URL 中的 `"3"` 最终会以整数 `3` 进入函数？省略 `limit` 时又会发生什么？
+3. `limit=many` 为什么返回 422，而不是进入函数后抛出 `ValueError`？它与 404 有什么区别？
+
+### 通关标准
+
+- 先阅读概念讲义并能回答其中 5 个基础检查问题。
+- 独立完成 `app.py` 中的 `TODO 1`、`TODO 2`、`TODO 3`，不修改测试预期。
+- 完整测试达到 `32 passed`。
+- 能用自己的话回答 3 道复习题。
+- 按模板完成 `LEARNING_LOG.md` 的 Day 10 记录。
+
+以上通关条件已于 2026-08-30 全部完成。
+
+### 学习记录
+
+把以下内容填写到 `LEARNING_LOG.md` 的 Day 10 部分：
+
+- 今天学了什么
+- 我独立写了什么
+- 遇到了什么错误
+- 错误原因是什么
+- 明天需要复习什么
 
 ## Day 9 学习任务
 

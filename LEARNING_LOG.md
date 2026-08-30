@@ -307,3 +307,37 @@
    - GET 方法和 `/health` 路径都能匹配已注册路由，因此成功返回 200。`/health` 路径存在，但只登记了 GET，使用 POST 时方法不允许，所以返回 405。如果没有任何路由能匹配目标路径，则返回 404。
 3. 为什么接口测试既要检查 `response.status_code`，又要检查 `response.json()`？
    - 状态码验证请求是否按预期成功或失败，JSON 验证实际业务数据。只检查 200 可能漏掉错误响应体，只检查 JSON 又可能漏掉错误的 HTTP 语义，因此两者需要分别断言。
+
+## Day 10（2026-08-30）
+
+- 今天学了什么：
+  - URL 的路径位于 `?` 之前，Query 参数位于 `?` 之后；多个查询参数可以使用 `&` 分隔
+  - FastAPI 路由模板中的 `{model_name}` 是 Path 参数，必须与函数中的参数名称对应
+  - 没有出现在路径模板中的 `limit` 会被识别为 Query 参数，`limit: int = 1` 同时声明了目标类型和默认值
+  - FastAPI 会在调用处理函数前完成参数转换与校验，不能转换成整数的 `limit=many` 会直接返回 422
+- 我独立写了什么：
+  - 注册 `GET /debug/models/{model_name}` 参数观察路由
+  - 声明字符串 Path 参数 `model_name` 和默认值为 1 的整数 Query 参数 `limit`
+  - 返回 Path 与 Query 的实际值，并用接口测试覆盖显式值、默认值和错误类型
+  - 通关验证：`.\.venv\Scripts\python.exe -m pytest -q` 结果为 `32 passed`
+- 遇到了什么错误：
+  - 前两条参数测试失败，响应中的 `limit` 是字符串 `"3"`、`"1"`，测试期望整数 `3`、`1`
+  - 初始类型标注写成了缺少常用空格的 `model_name:str` 和 `dict[str,object]`
+- 错误原因是什么：
+  - FastAPI 已根据 `limit: int` 把 URL 文本转换为整数，但返回时又调用 `str(limit)`，将整数重新转成了字符串
+  - 返回字典同时包含字符串模型名和整数 limit，因此 `dict[str, str]` 也不能准确描述返回值，应使用能够容纳混合值的类型
+  - Python 接受缺少空格的类型标注，所以测试不会因此失败，但规范空格能提高可读性
+- 明天需要复习什么：
+  - URL 路径与查询字符串的边界
+  - FastAPI 如何区分 Path 参数和 Query 参数
+  - 类型标注如何驱动字符串到整数的转换与 422 校验
+  - 类型标注与实际返回数据必须保持一致
+
+### Day 10 复习问题答案
+
+1. 对请求 `/debug/models/mock-llm?limit=3`，FastAPI 分别从哪里取得 `model_name` 和 `limit`？
+   - `/debug/models/{model_name}` 中的动态路径片段与请求中的 `mock-llm` 对应，所以 `model_name` 来自 Path；`limit` 没有出现在路径模板中，FastAPI 从 `?limit=3` 的 Query 中取得它。
+2. 为什么 URL 中的 `"3"` 最终会以整数 `3` 进入函数？省略 `limit` 时又会发生什么？
+   - URL 参数最初是文本，FastAPI 读取函数签名中的 `limit: int` 后尝试转换成整数。因为它还声明了默认值 `= 1`，省略 Query 参数时函数会收到整数 1。
+3. `limit=many` 为什么返回 422，而不是进入函数后抛出 `ValueError`？它与 404 有什么区别？
+   - FastAPI 在调用处理函数前按照 `int` 标注校验参数，`many` 无法转换时直接生成 422，函数不会执行。422 表示路由已匹配但输入内容不合法；404 表示目标路径没有匹配到路由。
